@@ -384,6 +384,13 @@ scheme_make_symbol(const char *name)
 }
 
 Scheme_Object *
+scheme_gensym(const char *name) {
+  Scheme_Object *sym;
+  sym = scheme_make_symbol(name);
+  return gensym(1, &sym);
+}
+
+Scheme_Object *
 scheme_make_exact_symbol(const char *name, uintptr_t len)
 {
   return make_a_symbol(name, len, 0x1);

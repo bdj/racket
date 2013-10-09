@@ -1346,7 +1346,7 @@ typedef struct {
    with a chain of Scheme_Compiled_Let_Value records as its body,
    where there's one Scheme_Compiled_Let_Value for each binding
    clause. A `let*' is normally expanded to nested `let's before
-   compilation, but the intermediate format also supposrts `let*',
+   compilation, but the intermediate format also supports `let*',
    which is useful mostly for converting a simple enough `letrec' form
    into `let*.
 
@@ -1473,7 +1473,7 @@ typedef struct Scheme_Let_Value {
   Scheme_Object *body;
 } Scheme_Let_Value;
 
-#define SCHEME_LET_AUTOBOX(lh) MZ_OPT_HASH_KEY(&lh->iso)
+#define SCHEME_LET_VALUE_AUTOBOX(lv) MZ_OPT_HASH_KEY(&lv->iso)
 
 typedef struct Scheme_Let_One {
   Scheme_Inclhash_Object iso; /* keyex used for eval_type + flonum/unused (and can't be hashed) */
@@ -1493,6 +1493,8 @@ typedef struct Scheme_Let_Void {
   mzshort count;
   Scheme_Object *body;
 } Scheme_Let_Void;
+
+#define SCHEME_LET_VOID_AUTOBOX(lv) MZ_OPT_HASH_KEY(&lv->iso)
 
 typedef struct Scheme_Letrec {
   Scheme_Object so;
@@ -2859,6 +2861,10 @@ Scheme_Object *scheme_register_toplevel_in_comp_prefix(Scheme_Object *var, Comp_
 void scheme_register_unbound_toplevel(Scheme_Comp_Env *env, Scheme_Object *id);
 Scheme_Object *scheme_register_stx_in_prefix(Scheme_Object *var, Scheme_Comp_Env *env,
 					     Scheme_Compile_Info *rec, int drec);
+Scheme_Object *scheme_register_stx_in_comp_prefix(Scheme_Object *var, Comp_Prefix *cp);
+void scheme_register_unsafe_in_prefix(Scheme_Comp_Env *env,
+                                      Scheme_Compile_Info *rec, int drec,
+                                      Scheme_Env *menv);
 void scheme_merge_undefineds(Scheme_Comp_Env *exp_env, Scheme_Comp_Env *env);
 
 void scheme_bind_syntaxes(const char *where, Scheme_Object *names, Scheme_Object *a, 
@@ -2934,6 +2940,7 @@ Scheme_Object *scheme_make_noninline_proc(Scheme_Object *e);
 Scheme_Object *scheme_resolve_expr(Scheme_Object *, Resolve_Info *);
 Scheme_Object *scheme_resolve_list(Scheme_Object *, Resolve_Info *);
 Scheme_Object *scheme_unresolve(Scheme_Object *, int argv, int *_has_cases);
+Scheme_Object *scheme_unresolve_top(Scheme_Object *, Comp_Prefix **);
 
 int scheme_check_leaf_rator(Scheme_Object *le, int *_flags);
 
@@ -4062,6 +4069,7 @@ void scheme_set_root_param(int p, Scheme_Object *v);
 
 Scheme_Object *scheme_intern_exact_parallel_symbol(const char *name, uintptr_t len);
 Scheme_Object *scheme_symbol_append(Scheme_Object *s1, Scheme_Object *s2);
+Scheme_Object *scheme_gensym(const char *name);
 Scheme_Object *scheme_copy_list(Scheme_Object *l);
 
 void scheme_reset_hash_table(Scheme_Hash_Table *ht, int *history);
