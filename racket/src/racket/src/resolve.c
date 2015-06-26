@@ -3393,6 +3393,7 @@ static Scheme_Object *unresolve_toplevel(Scheme_Object *rdata, Unresolve_Info *u
                              SCHEME_TOPLEVEL_FLAGS(rdata) & SCHEME_TOPLEVEL_FLAGS_MASK);
     scheme_hash_set(ui->toplevels, opos, v);
   }
+  printf("flags for %d: %d\n", pos, SCHEME_TOPLEVEL_FLAGS(rdata) & SCHEME_TOPLEVEL_FLAGS_MASK);
   
   ui->has_tl = 1;
   
@@ -4225,6 +4226,8 @@ Scheme_Object *unresolve_module(Scheme_Object *e, Unresolve_Info *ui) {
   nm->max_let_depth = 0;
   nm->prefix = NULL;
   nm->dummy = dummy;
+  /* TODO does this need to be processed at all? */
+  nm->rn_stx = m->rn_stx;
   ui->module = NULL;
   ui->comp_prefix = NULL;
 
