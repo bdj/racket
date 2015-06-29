@@ -3393,7 +3393,7 @@ static Scheme_Object *unresolve_toplevel(Scheme_Object *rdata, Unresolve_Info *u
                              SCHEME_TOPLEVEL_FLAGS(rdata) & SCHEME_TOPLEVEL_FLAGS_MASK);
     scheme_hash_set(ui->toplevels, opos, v);
   }
-  printf("flags for %d: %d\n", pos, SCHEME_TOPLEVEL_FLAGS(rdata) & SCHEME_TOPLEVEL_FLAGS_MASK);
+  //printf("flags for %d: %d\n", pos, SCHEME_TOPLEVEL_FLAGS(rdata) & SCHEME_TOPLEVEL_FLAGS_MASK);
   
   ui->has_tl = 1;
   
@@ -4528,6 +4528,28 @@ static Scheme_Object *unresolve_expr_2(Scheme_Object *e, Unresolve_Info *ui, int
       return (Scheme_Object *)sb2;
     }
   case scheme_varref_form_type:
+    {
+      Scheme_Object *a, *b, *o;
+      a = SCHEME_PTR1_VAL(e);
+      a = unresolve_expr_2(a, ui, 0);
+      if (!a) return_NULL;
+      //printf("unresolve_varref: (a) %d %d\n", e->type, a->type);
+
+      if (SAME_TYPE(SCHEME_TYPE(a), scheme_compiled_toplevel_type)) {
+        SCHEME_TOPLEVEL_FLAGS(a) |= SCHEME_TOPLEVEL_MUTATED;
+      }
+
+      b = SCHEME_PTR2_VAL(e);
+      b = unresolve_expr_2(b, ui, 0);
+      if (!b) return_NULL;
+      //printf(" (b) %d\n", b->type);
+
+      o = scheme_alloc_object();
+      o->type = SCHEME_TYPE(e);
+      SCHEME_PTR1_VAL(o) = a;
+      SCHEME_PTR2_VAL(o) = b;
+      return o;
+    }
   case scheme_apply_values_type:
     {
       return unresolve_object(e, ui);
