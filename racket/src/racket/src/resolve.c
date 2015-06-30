@@ -3512,12 +3512,46 @@ static Scheme_Compiled_Let_Value *make_compiled_let_value(int position, int coun
     return clv;
 }
 
+typedef struct Unresolve_Let_Void_State {
+  /* All pointers so we can use scheme_malloc */
+  Scheme_Let_Header *prev_head;
+  Scheme_Compiled_Let_Value *prev_let;
+  Scheme_Sequence *prev_seq;
+} Unresolve_Let_Void_State;
+
+/* only one of lh, clv, seq, or body should be non-NULL */
+static void attach_lv(Scheme_Let_Header *lh, 
+    Scheme_Compiled_Let_Value *clv, 
+    Scheme_Sequence *seq,
+    Scheme_Object *body,
+    Unresolve_Let_Void_State *state) {
+  Scheme_Object *o;
+  o = lh ? (Scheme_Object *)lh : 
+    (clv ? (Scheme_Object *)clv :
+    (seq ? (Scheme_Object *)seq : body));
+  
+  if (state->prev_head) {
+    state->prev_head->body = o;
+  } else if (state->prev_let) {
+    state->prev_let->body = o;
+  } else if (state->prev_seq) {
+    state->prev_seq->array[state->prev_seq->count - 1] = o;
+  }
+
+  state->prev_head = lh;
+  state->prev_let = clv;
+  state->prev_seq = seq; 
+}
+
 static Scheme_Object *unresolve_let_void(Scheme_Object *e, Unresolve_Info *ui) {
   Scheme_Let_Void *lv = (Scheme_Let_Void *)e;
   int i, pos, count, *flags;
   Scheme_Let_Header *lh;
-  Scheme_Object *o, **body;
+  Scheme_Object *o;
   Scheme_Compiled_Let_Value **clvmap;
+  Unresolve_Let_Void_State *state;
+
+  state = scheme_malloc(sizeof(Unresolve_Let_Void_State));
 
   count = lv->count;
   pos = unresolve_stack_push(ui, count, 0, 0);
@@ -3525,7 +3559,7 @@ static Scheme_Object *unresolve_let_void(Scheme_Object *e, Unresolve_Info *ui) {
   clvmap = MALLOC_N(Scheme_Compiled_Let_Value*, count);
   
   o = lv->body;
-  body = &(lh->body);
+  attach_lv(lh, NULL, NULL, NULL, state);
   for (i = 0; i < count;) {
     switch (SCHEME_TYPE(o)) {
     case scheme_let_value_type: {   
@@ -3540,8 +3574,7 @@ static Scheme_Object *unresolve_let_void(Scheme_Object *e, Unresolve_Info *ui) {
       clv->value = val;
 
       o = lval->body;
-      *body = (Scheme_Object *)clv;
-      body = &(clv->body);
+      attach_lv(NULL, clv, NULL, NULL, state);
       i += lval->count;
      
       break;
@@ -3562,18 +3595,27 @@ static Scheme_Object *unresolve_let_void(Scheme_Object *e, Unresolve_Info *ui) {
 	val = unresolve_expr_2(lr->procs[j], ui, 0);
 	if (!val) return_NULL;
 	clv->value = val;
-	*body = (Scheme_Object *)clv;
-	body = &(clv->body);
+        attach_lv(NULL, clv, NULL, NULL, state);
 	i++;
       }
       o = lr->body;
       break;
     }
     case scheme_sequence_type: {
-      /* This happens when there are sfs-clear's inserted for unused bindings.
-         They will be reinserted when resolved again, so we can just ignore them. */
-      Scheme_Sequence *seq = (Scheme_Sequence *)o;
+      /* TODO: sequences have actual things in them, as this error shows */
+      Scheme_Sequence *seq = (Scheme_Sequence *)o, *seq2;
+      Scheme_Object *e;
+      int i;
+      seq2 = scheme_malloc_sequence(seq->count);
+      seq2->so.type = seq->so.type;
+      seq2->count = seq->count;
+      for (i = seq->count-1; i--; ) {
+	e = unresolve_expr_2(seq->array[i], ui, 0);
+	if (!e) return_NULL;
+	seq2->array[i] = e;
+      }
       o = seq->array[seq->count - 1];
+      attach_lv(NULL, NULL, seq, NULL, state); 
       break;
     }
     default: {
@@ -3584,7 +3626,7 @@ static Scheme_Object *unresolve_let_void(Scheme_Object *e, Unresolve_Info *ui) {
   
   o = unresolve_expr_2(o, ui, 0);
   if (!o) return_NULL;
-  *body = o;
+  attach_lv(NULL, NULL, NULL, o, state);
 
   flags = unresolve_stack_pop(ui, pos, lv->count);
 
@@ -3595,6 +3637,12 @@ static Scheme_Object *unresolve_let_void(Scheme_Object *e, Unresolve_Info *ui) {
       // TODO: check and throw type error
     clv = (Scheme_Compiled_Let_Value *)(lh->body);
     while (count < lv->count) {
+      // TODO: loop on clvs that are sequences
+      if (SAME_TYPE(SCHEME_TYPE((Scheme_Object *)clv), scheme_sequence_type)) {
+	Scheme_Sequence *seq = (Scheme_Sequence *)clv;
+	
+	clv = (Scheme_Compiled_Let_Value *)seq->array[seq->count - 1];
+      }
       clv_flags = (int *)scheme_malloc_atomic(sizeof(int *) * clv->count);
       for (i = 0; i < clv->count; i++) {
 	clv_flags[i] = flags[i + count];
