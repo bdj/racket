@@ -3599,23 +3599,17 @@ static Scheme_Object *unresolve_let_void(Scheme_Object *e, Unresolve_Info *ui) {
 	i++;
       }
       o = lr->body;
+      //
       break;
     }
     case scheme_sequence_type: {
-      /* TODO: sequences have actual things in them, as this error shows */
-      Scheme_Sequence *seq = (Scheme_Sequence *)o, *seq2;
-      Scheme_Object *e;
-      int i;
-      seq2 = scheme_malloc_sequence(seq->count);
-      seq2->so.type = seq->so.type;
-      seq2->count = seq->count;
-      for (i = seq->count-1; i--; ) {
-	e = unresolve_expr_2(seq->array[i], ui, 0);
-	if (!e) return_NULL;
-	seq2->array[i] = e;
+      Scheme_Sequence *seq = (Scheme_Sequence *)o;
+      for (int i = 0; i < seq->count - 1; i++) {
+        if (!SAME_TYPE(SCHEME_TYPE(seq->array[i]), scheme_local_type)) {
+          scheme_signal_error("internal error: unexpected form in sequence: %d", SCHEME_TYPE(o));
+        }
       }
       o = seq->array[seq->count - 1];
-      attach_lv(NULL, NULL, seq, NULL, state); 
       break;
     }
     default: {
