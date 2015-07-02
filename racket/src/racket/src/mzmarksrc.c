@@ -1303,6 +1303,11 @@ mark_unresolve_info {
   gcMARK2(i->depths, gc);
   gcMARK2(i->prefix, gc);
   gcMARK2(i->closures, gc);
+  gcMARK2(i->closures, gc);
+  gcMARK2(i->module, gc);
+  gcMARK2(i->comp_prefix, gc);
+  gcMARK2(i->toplevels, gc);
+  gcMARK2(i->definitions, gc);
 
  size:
   gcBYTES_TO_WORDS(sizeof(Unresolve_Info));

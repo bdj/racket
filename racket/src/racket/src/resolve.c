@@ -3628,13 +3628,10 @@ static Scheme_Object *unresolve_let_void(Scheme_Object *e, Unresolve_Info *ui) {
   { 
     Scheme_Compiled_Let_Value *clv;
     int count = 0, *clv_flags;
-      // TODO: check and throw type error
     clv = (Scheme_Compiled_Let_Value *)(lh->body);
     while (count < lv->count) {
-      // TODO: loop on clvs that are sequences
       if (SAME_TYPE(SCHEME_TYPE((Scheme_Object *)clv), scheme_sequence_type)) {
 	Scheme_Sequence *seq = (Scheme_Sequence *)clv;
-	
 	clv = (Scheme_Compiled_Let_Value *)seq->array[seq->count - 1];
       }
       clv_flags = (int *)scheme_malloc_atomic(sizeof(int *) * clv->count);
@@ -3643,7 +3640,6 @@ static Scheme_Object *unresolve_let_void(Scheme_Object *e, Unresolve_Info *ui) {
       }
       clv->flags = clv_flags;
       count += clv->count;
-      // TODO: check and throw type error
       clv = (Scheme_Compiled_Let_Value *)(clv->body);
     }
   }
@@ -4253,16 +4249,19 @@ Scheme_Object *unresolve_module(Scheme_Object *e, Unresolve_Info *ui) {
   /* TODO Scheme_Module_Exports *me fill in */
   nm->me = m->me;
 
-  nm->num_phases = m->num_phases;
+  /* TODO Actually handle all the phases */
+  nm->num_phases = 0;
 
   /* TODO Scheme_Module_Export_Info **exp_infos copy */
   nm->exp_infos = m->exp_infos;
 
   /* TODO self_modidx */
-
+  nm->self_modidx = m->self_modidx;
   /* TODO insp */
+  nm->insp = m->insp;
 
   /* TODO lang_info */
+  nm->lang_info = m->lang_info;
 
   nm->comp_prefix = cp;
   nm->max_let_depth = 0;
@@ -4663,7 +4662,8 @@ static Scheme_Object *unresolve_expr_2(Scheme_Object *e, Unresolve_Info *ui, int
       if (scheme_compiled_duplicate_ok(e, 1) || !(ui->inlining))
         return e;
     }
-    printf("------------NO UNRESOLVE FOR %d\n\n", SCHEME_TYPE(e));
+
+    scheme_signal_error("internal error: no unresolve for: %d", SCHEME_TYPE(e));
     return_NULL;
   }
 }
