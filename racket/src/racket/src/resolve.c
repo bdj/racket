@@ -3108,7 +3108,7 @@ static int resolving_in_procedure(Resolve_Info *info)
 }
 
 /*========================================================================*/
-/*                             unresolve                                   */
+/*                             unresolve                                  */
 /*========================================================================*/
 
 #if 0
@@ -4081,6 +4081,7 @@ static Scheme_Object* unresolve_cyclic_closure(Scheme_Object *c, Unresolve_Info 
     ui->depths = ds;
     
     val = unresolve_closure_data_2(SCHEME_COMPILED_CLOS_CODE(c), ui);
+    if (!val) return_NULL;
     
     /* restore unresolve stack */
     ui->stack_size = stack_size;
@@ -4617,6 +4618,7 @@ static Scheme_Object *unresolve_expr_2(Scheme_Object *e, Unresolve_Info *ui, int
       cl2->count = cl->count;
       cl2->name = cl->name; /* this may need more handling, see schpriv.c:1456 */
 
+      // TODO: This code is fishy
       for (i = 0; i < cl->count; i++) {
 	Scheme_Object *le;
 	le = cl->array[i];
@@ -4626,6 +4628,7 @@ static Scheme_Object *unresolve_expr_2(Scheme_Object *e, Unresolve_Info *ui, int
 	//printf("unresolved case: %s\n", scheme_print_to_string(le, NULL));
 	if (SAME_TYPE(SCHEME_TYPE(le), scheme_compiled_toplevel_type)) {
 	  le = unresolve_closure_data_2(SCHEME_COMPILED_CLOS_CODE(cl->array[i]), ui);
+          // TODO: return null?
 	  //printf("unresolved case data: %s\n", scheme_print_to_string(le, NULL));
 	}
 	cl2->array[i] = le;
