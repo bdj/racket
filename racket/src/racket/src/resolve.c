@@ -4609,7 +4609,7 @@ static Scheme_Object *unresolve_expr_2(Scheme_Object *e, Unresolve_Info *ui, int
     }
   case scheme_case_lambda_sequence_type:
     {
-      int i;
+      int i, cnt;
       Scheme_Case_Lambda *cl = (Scheme_Case_Lambda *)e, *cl2;
 
       cl2 = (Scheme_Case_Lambda *)scheme_malloc_tagged(sizeof(Scheme_Case_Lambda)
@@ -4618,19 +4618,20 @@ static Scheme_Object *unresolve_expr_2(Scheme_Object *e, Unresolve_Info *ui, int
       cl2->count = cl->count;
       cl2->name = cl->name; /* this may need more handling, see schpriv.c:1456 */
 
-      // TODO: This code is fishy
-      for (i = 0; i < cl->count; i++) {
-	Scheme_Object *le;
-	le = cl->array[i];
-	//printf("unresolving case: %s\n", scheme_print_to_string(le, NULL));
-	le = unresolve_expr_2(le, ui, 0);
-	if (!le) return_NULL;
-	//printf("unresolved case: %s\n", scheme_print_to_string(le, NULL));
-	if (SAME_TYPE(SCHEME_TYPE(le), scheme_compiled_toplevel_type)) {
-	  le = unresolve_closure_data_2(SCHEME_COMPILED_CLOS_CODE(cl->array[i]), ui);
-          // TODO: return null?
-	  //printf("unresolved case data: %s\n", scheme_print_to_string(le, NULL));
-	}
+      cnt = cl->count; 
+
+      for (i = 0; i < cnt; i++) {
+        Scheme_Object *le;
+        Scheme_Closure_Data *data;
+        if (SAME_TYPE(SCHEME_TYPE(cl->array[i]), scheme_closure_type)) {
+          data = ((Scheme_Closure *)cl->array[i])->code;
+        } else {
+          data = (Scheme_Closure_Data *)cl->array[i];
+        }
+
+        le = unresolve_closure_data_2(data, ui);
+        if (!le) return_NULL;
+        
 	cl2->array[i] = le;
       }
 
