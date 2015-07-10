@@ -4197,7 +4197,7 @@ static Comp_Prefix *unresolve_prefix(Resolve_Prefix *rp, Unresolve_Info *ui) {
 
 Scheme_Object *unresolve_module(Scheme_Object *e, Unresolve_Info *ui) {
   Scheme_Module *m = (Scheme_Module *)e, *nm;
-  Scheme_Object *dummy, *bs, *ds, **bss;
+  Scheme_Object *dummy, *bs, *bs2, *ds, **bss;
   Comp_Prefix *cp;
   int i, cnt, len;
 
@@ -4207,17 +4207,21 @@ Scheme_Object *unresolve_module(Scheme_Object *e, Unresolve_Info *ui) {
   ui->comp_prefix = cp;
 
   cnt = SCHEME_VEC_SIZE(m->bodies[0]);
-  len = scheme_list_length(ui->definitions);
-  ds = ui->definitions;
-  bs = scheme_make_vector(cnt + len, NULL);
-  for (i = 0; SCHEME_PAIRP(ds); ds = SCHEME_CDR(ds), i++) {
-    SCHEME_VEC_ELS(bs)[i] = SCHEME_CAR(ds);
-  }
+  bs = scheme_make_vector(cnt, NULL);
   for (i = 0; i < cnt; i++) {
     Scheme_Object *b;
     b = unresolve_expr_2(SCHEME_VEC_ELS(m->bodies[0])[i], ui, 0);
     if (!b) return_NULL;
-    SCHEME_VEC_ELS(bs)[i + len] = b;
+    SCHEME_VEC_ELS(bs)[i] = b;
+  }
+  len = scheme_list_length(ui->definitions);
+  ds = ui->definitions;
+  bs2 = scheme_make_vector(cnt + len, NULL);
+  for (i = 0; SCHEME_PAIRP(ds); ds = SCHEME_CDR(ds), i++) {
+    SCHEME_VEC_ELS(bs2)[i] = SCHEME_CAR(ds);
+  }
+  for (i = 0; i < cnt; i++) {
+    SCHEME_VEC_ELS(bs2)[i + len] = SCHEME_VEC_ELS(bs)[i];
   }
 
   dummy = scheme_make_toplevel(0, SCHEME_TOPLEVEL_POS(m->dummy), 0, 0);
@@ -4241,7 +4245,7 @@ Scheme_Object *unresolve_module(Scheme_Object *e, Unresolve_Info *ui) {
 
   bss = MALLOC_N(Scheme_Object*, m->num_phases); 
   nm->bodies = bss;
-  nm->bodies[0] = bs;
+  nm->bodies[0] = bs2;
   for (i = 1; i < m->num_phases; i++) {
     nm->bodies[i] = m->bodies[i];
   /* TODO populate other phases, maybe not needed for demod */
