@@ -3499,7 +3499,7 @@ static Scheme_Let_Header *make_let_header(int count) {
   lh->iso.so.type = scheme_compiled_let_void_type;
   lh->count = count;
   lh->num_clauses = 0;
-  SCHEME_LET_FLAGS(lh) = SCHEME_LET_STAR;
+  SCHEME_LET_FLAGS(lh) = SCHEME_LET_RECURSIVE;
   return lh;
 }
 
