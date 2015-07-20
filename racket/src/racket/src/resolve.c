@@ -4056,7 +4056,7 @@ static Scheme_Object* unresolve_cyclic_closure(Scheme_Object *c, Unresolve_Info 
     mv = unresolve_prefix_symbol(s, ui);
     tl = scheme_register_toplevel_in_comp_prefix(mv, ui->comp_prefix, 0, NULL);
 
-    //printf("Cyclic toplevel: %d\n", SCHEME_TOPLEVEL_POS(tl));
+    printf("Cyclic toplevel: %d\n", SCHEME_TOPLEVEL_POS(tl));
     scheme_hash_set(ui->closures, c, tl);
  
     /* add a toplevel definition for the unresolved code */
@@ -4080,15 +4080,20 @@ static Scheme_Object* unresolve_cyclic_closure(Scheme_Object *c, Unresolve_Info 
     ds = (mzshort *)scheme_malloc_atomic(sizeof(mzshort) * ui->stack_size);
     ui->depths = ds;
     
+    // TODO: remember all values up until here and restore them and try again
+    // c, ui, 
     val = unresolve_closure_data_2(SCHEME_COMPILED_CLOS_CODE(c), ui);
-    if (!val) return_NULL;
-    
     /* restore unresolve stack */
     ui->stack_size = stack_size;
     ui->depth = depth;
     ui->stack_pos = stack_pos;
     ui->flags = flags;
     ui->depths = depths;
+
+    if (!val) {
+      return_NULL;
+    }
+    
 
     SCHEME_VEC_ELS(d)[1] = val;
     d->type = scheme_define_values_type;
@@ -4215,6 +4220,7 @@ Scheme_Object *unresolve_module(Scheme_Object *e, Unresolve_Info *ui) {
     SCHEME_VEC_ELS(bs)[i] = b;
   }
   len = scheme_list_length(ui->definitions);
+  printf("defs: %d\n", len);
   ds = ui->definitions;
   bs2 = scheme_make_vector(cnt + len, NULL);
   for (i = 0; SCHEME_PAIRP(ds); ds = SCHEME_CDR(ds), i++) {
@@ -4255,7 +4261,7 @@ Scheme_Object *unresolve_module(Scheme_Object *e, Unresolve_Info *ui) {
   nm->me = m->me;
 
   /* TODO Actually handle all the phases */
-  nm->num_phases = 0;
+  nm->num_phases = 1;
 
   /* TODO Scheme_Module_Export_Info **exp_infos copy */
   nm->exp_infos = m->exp_infos;
