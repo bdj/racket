@@ -4106,47 +4106,19 @@ static Scheme_Object* unresolve_cyclic_closure(Scheme_Object *c, Unresolve_Info 
 
 static Scheme_Object *unresolve_closure(Scheme_Object *e, Unresolve_Info *ui) {
   
-  // TODO: use ui->closures to insert a toplevel ref if necessary
       Scheme_Object *r, *c;
       int stack_pos, depth;
 
-      if (!ui->closures) {
-        Scheme_Hash_Table *ht;
-        ht = scheme_make_hash_table(SCHEME_hash_ptr);
-        ui->closures = ht;
-      }
-
       c = scheme_hash_get(ui->closures, e);
 
-      if (SAME_OBJ(c, scheme_true)) {
-        return_NULL;
-      }
       if (c && SAME_TYPE(SCHEME_TYPE(c), scheme_compiled_toplevel_type)) {
         return c;
       }
-
-      scheme_hash_set(ui->closures, e, scheme_true);
-
-      /* TODO improve this comment
-         If e is a cyclic closure, unresolve_closure will return NULL,
-         and unresolve_cyclic closure will be called. We need to save and
-         restore the unresolve stack that may have been changed while
-         aborting unresolve_closure. */
 
       stack_pos = ui->stack_pos;
       depth = ui->depth;
 
       r = unresolve_closure_data_2(SCHEME_COMPILED_CLOS_CODE(e), ui);
-
-      if (r) {
-        scheme_hash_set(ui->closures, e, NULL);
-        return r;
-      }
-
-      ui->stack_pos = stack_pos;
-      ui->depth = depth;
-
-      r = unresolve_cyclic_closure(e, ui);
       return r;
 }
 
@@ -4201,7 +4173,7 @@ static Comp_Prefix *unresolve_prefix(Resolve_Prefix *rp, Unresolve_Info *ui) {
   return cp;
 }
 
-void locate_cyclic_closures(Scheme_Object *e, Scheme_Hash_Table *closures, Unresolve_Info *ui) {
+void locate_cyclic_closures(Scheme_Object *e, Unresolve_Info *ui) {
   switch(SCHEME_TYPE(e)) {
     case scheme_sequence_type:
     case scheme_begin0_sequence_type:
@@ -4209,7 +4181,7 @@ void locate_cyclic_closures(Scheme_Object *e, Scheme_Hash_Table *closures, Unres
       {
         Scheme_Sequence *seq = (Scheme_Sequence *)e;
         for (int i = 0; i < seq->count; i++) {
-          locate_cyclic_closures(seq->array[i], closures, ui);
+          locate_cyclic_closures(seq->array[i], ui);
         }
       }
       break;
@@ -4217,107 +4189,107 @@ void locate_cyclic_closures(Scheme_Object *e, Scheme_Hash_Table *closures, Unres
       {
         Scheme_App_Rec *app = (Scheme_App_Rec *)e;
         for (int i = 0; i < app->num_args + 1; i++) {
-          locate_cyclic_closures(app->args[i], closures, ui);
+          locate_cyclic_closures(app->args[i], ui);
         }
       }
       break;
     case scheme_application2_type:
       {
         Scheme_App2_Rec *app = (Scheme_App2_Rec *)e;
-        locate_cyclic_closures(app->rator, closures, ui);
-        locate_cyclic_closures(app->rand, closures, ui);
+        locate_cyclic_closures(app->rator, ui);
+        locate_cyclic_closures(app->rand, ui);
       }
       break;
     case scheme_application3_type:
       {
         Scheme_App3_Rec *app = (Scheme_App3_Rec *)e;
-        locate_cyclic_closures(app->rator, closures, ui);
-        locate_cyclic_closures(app->rand1, closures, ui);
-        locate_cyclic_closures(app->rand2, closures, ui);
+        locate_cyclic_closures(app->rator, ui);
+        locate_cyclic_closures(app->rand1, ui);
+        locate_cyclic_closures(app->rand2, ui);
       }
       break;
     case scheme_branch_type:
       {
         Scheme_Branch_Rec *b = (Scheme_Branch_Rec *)e;
-        locate_cyclic_closures(b->test, closures, ui);
-        locate_cyclic_closures(b->tbranch, closures, ui);
-        locate_cyclic_closures(b->fbranch, closures, ui);
+        locate_cyclic_closures(b->test, ui);
+        locate_cyclic_closures(b->tbranch, ui);
+        locate_cyclic_closures(b->fbranch, ui);
       }
       break;
     case scheme_with_cont_mark_type:
       {
         Scheme_With_Continuation_Mark *wcm = (Scheme_With_Continuation_Mark *)e;
-        locate_cyclic_closures(wcm->key, closures, ui);
-        locate_cyclic_closures(wcm->val, closures, ui);
-        locate_cyclic_closures(wcm->body, closures, ui);
+        locate_cyclic_closures(wcm->key, ui);
+        locate_cyclic_closures(wcm->val, ui);
+        locate_cyclic_closures(wcm->body, ui);
       }
       break;
     case scheme_let_void_type:
       {
         Scheme_Let_Void *lv = (Scheme_Let_Void *)e;
-        locate_cyclic_closures(lv->body, closures, ui);
+        locate_cyclic_closures(lv->body, ui);
       }
       break;
     case scheme_letrec_type:
       {
         Scheme_Letrec *lr = (Scheme_Letrec *)e;
         for (int i = 0; i < lr->count; i++) {
-          locate_cyclic_closures(lr->procs[i], closures, ui);
+          locate_cyclic_closures(lr->procs[i], ui);
         }
-        locate_cyclic_closures(lr->body, closures, ui);
+        locate_cyclic_closures(lr->body, ui);
       }
       break;
     case scheme_let_one_type:
       {
         Scheme_Let_One *lo = (Scheme_Let_One *)e;
-        locate_cyclic_closures(lo->value, closures, ui);
-        locate_cyclic_closures(lo->body, closures, ui);
+        locate_cyclic_closures(lo->value, ui);
+        locate_cyclic_closures(lo->body, ui);
       }
       break;
     case scheme_closure_type:
       {
         Scheme_Object *c;
-        c = scheme_hash_get(closures, e);
+        c = scheme_hash_get(ui->closures, e);
 
         if (SAME_OBJ(c, scheme_true)) {
           Scheme_Object *s, *mv, *tl;
           s = scheme_gensym("cyclic");
           mv = unresolve_prefix_symbol(s, ui);
           tl = scheme_register_toplevel_in_comp_prefix(mv, ui->comp_prefix, 0, NULL);
-          scheme_hash_set(closures, e, tl);
+          scheme_hash_set(ui->closures, e, tl);
         } else if (c) {
           // do nothing
         } else {
           Scheme_Closure *cl = (Scheme_Closure *)e;
-          scheme_hash_set(closures, e, scheme_true);
-          locate_cyclic_closures(cl->code, closures, ui);
+          scheme_hash_set(ui->closures, e, scheme_true);
+          locate_cyclic_closures(cl->code, ui);
         }
       }
       break;
     case scheme_unclosed_procedure_type:
       {
         Scheme_Closure_Data *cd = (Scheme_Closure_Data *)e;
-        locate_cyclic_closures(cd->code, closures, ui);
+        locate_cyclic_closures(cd->code, ui);
       }
       break;
     case scheme_inline_variant_type:
       {
         Scheme_Object *a;
         a = SCHEME_VEC_ELS(e)[0];
-        locate_cyclic_closures(a, closures, ui);
+        locate_cyclic_closures(a, ui);
       }
       break;
     case scheme_define_values_type:
       {
         // TODO: are the rest all toplevels?
-        locate_cyclic_closures(SCHEME_VEC_ELS(e)[0], closures, ui);
+        locate_cyclic_closures(SCHEME_VEC_ELS(e)[0], ui);
       }
       break;
     case scheme_set_bang_type:
       {
         Scheme_Set_Bang *sb = (Scheme_Set_Bang *)e;
-        locate_cyclic_closures(sb->var, closures, ui);
-        locate_cyclic_closures(sb->val, closures, ui);
+        locate_cyclic_closures(sb->var, ui);
+        locate_cyclic_closures(sb->val, ui);
       }
       break;
     case scheme_varref_form_type:
@@ -4325,29 +4297,29 @@ void locate_cyclic_closures(Scheme_Object *e, Scheme_Hash_Table *closures, Unres
       {
         Scheme_Object *a, *b;
         a = SCHEME_PTR1_VAL(e);
-        locate_cyclic_closures(a, closures, ui);
+        locate_cyclic_closures(a, ui);
         b = SCHEME_PTR2_VAL(e);
-        locate_cyclic_closures(b, closures, ui);
+        locate_cyclic_closures(b, ui);
       }
       break;
     case scheme_boxenv_type:
       {
-        locate_cyclic_closures(SCHEME_PTR2_VAL(e), closures, ui);
+        locate_cyclic_closures(SCHEME_PTR2_VAL(e), ui);
       }
       break;
     case scheme_case_lambda_sequence_type:
       {
         Scheme_Case_Lambda *cl = (Scheme_Case_Lambda *)e;
         for (int i = 0; i < cl->count; i++) {
-          locate_cyclic_closures(cl->array[i], closures, ui);
+          locate_cyclic_closures(cl->array[i], ui);
         }
       }
       break;
     case scheme_let_value_type:
       {
         Scheme_Let_Value *lv = (Scheme_Let_Value *)e;
-        locate_cyclic_closures(lv->value, closures, ui);
-        locate_cyclic_closures(lv->body, closures, ui);
+        locate_cyclic_closures(lv->value, ui);
+        locate_cyclic_closures(lv->body, ui);
       }
       break;
     default:
@@ -4358,8 +4330,8 @@ void locate_cyclic_closures(Scheme_Object *e, Scheme_Hash_Table *closures, Unres
 Scheme_Object *unresolve_module(Scheme_Object *e, Unresolve_Info *ui) {
   Scheme_Module *m = (Scheme_Module *)e, *nm;
   Scheme_Object *dummy, *bs, *bs2, *ds, **bss;
+  Scheme_Hash_Table *ht;
   Comp_Prefix *cp;
-  Scheme_Hash_Table *closures;
   int i, cnt, len;
 
   ui->module = m;
@@ -4370,14 +4342,28 @@ Scheme_Object *unresolve_module(Scheme_Object *e, Unresolve_Info *ui) {
   cnt = SCHEME_VEC_SIZE(m->bodies[0]);
   bs = scheme_make_vector(cnt, NULL);
 
-  closures = scheme_make_hash_table(SCHEME_hash_ptr);
+  ht = scheme_make_hash_table(SCHEME_hash_ptr);
+  ui->closures = ht; 
   for (i = 0; i < cnt; i++) {
-    locate_cyclic_closures(SCHEME_VEC_ELS(m->bodies[0])[i], closures, ui);
+    locate_cyclic_closures(SCHEME_VEC_ELS(m->bodies[0])[i], ui);
   }
 
-  printf("closures: %s\n", scheme_print_to_string(closures, NULL));
-
-  // TODO: Unresolve closure bodies and put them in a definition
+  len = 0;
+  for (i = 0; i < ui->closures->size; i++) {
+    if (ui->closures->vals[i] &&
+        SAME_TYPE(SCHEME_TYPE(ui->closures->vals[i]), scheme_compiled_toplevel_type)) {
+      Scheme_Object *d, *vars, *val;
+      len++;
+      d = scheme_make_vector(2, NULL);
+      d->type = scheme_define_values_type;
+      vars = cons(ui->closures->vals[i], scheme_null);
+      val = unresolve_closure_data_2(SCHEME_COMPILED_CLOS_CODE(ui->closures->keys[i]), ui);
+      SCHEME_VEC_ELS(d)[0] = vars;
+      SCHEME_VEC_ELS(d)[1] = val;
+      d = cons(d, ui->definitions);
+      ui->definitions = d;
+    }
+  }
 
   for (i = 0; i < cnt; i++) {
     Scheme_Object *b;
@@ -4386,7 +4372,6 @@ Scheme_Object *unresolve_module(Scheme_Object *e, Unresolve_Info *ui) {
     SCHEME_VEC_ELS(bs)[i] = b;
   }
   len = scheme_list_length(ui->definitions);
-  printf("defs: %d\n", len);
   ds = ui->definitions;
   bs2 = scheme_make_vector(cnt + len, NULL);
   for (i = 0; SCHEME_PAIRP(ds); ds = SCHEME_CDR(ds), i++) {
