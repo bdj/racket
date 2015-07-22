@@ -3499,7 +3499,7 @@ static Scheme_Let_Header *make_let_header(int count) {
   lh->iso.so.type = scheme_compiled_let_void_type;
   lh->count = count;
   lh->num_clauses = 0;
-  SCHEME_LET_FLAGS(lh) = SCHEME_LET_RECURSIVE;
+  SCHEME_LET_FLAGS(lh) = SCHEME_LET_STAR;
   return lh;
 }
 
@@ -3568,6 +3568,10 @@ static Scheme_Object *unresolve_let_void(Scheme_Object *e, Unresolve_Info *ui) {
       Scheme_Object *val;
       clv = make_compiled_let_value(lval->position, lval->count);
       lh->num_clauses++;
+
+      if (SCHEME_LET_VALUE_AUTOBOX(lval)) {
+        SCHEME_LET_FLAGS(lh) = SCHEME_LET_RECURSIVE;
+      }
 
       val = unresolve_expr_2(lval->value, ui, 0);
       if (!val) return_NULL;
